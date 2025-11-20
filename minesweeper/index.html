@@ -1,120 +1,202 @@
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <title>Mine-Sweeper</title>
-        <link rel="stylesheet" href="https://pyscript.net/releases/2024.2.1/pyscript.css" />
-        <script defer src="https://pyscript.net/releases/2024.2.1/pyscript.js"></script>
-    </head>
-    <body>
-        import tkinter as tk
-from tkinter import messagebox
-import random
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Minesweeper</title>
+  <style>
+    body { font-family: Arial, Helvetica, sans-serif; display:flex; flex-direction:column; align-items:center; padding:20px; }
+    #board { display: inline-grid; gap: 2px; margin-top: 12px; }
+    button.cell {
+      width: 34px;
+      height: 34px;
+      padding: 0;
+      line-height: 34px;
+      text-align: center;
+      font-size: 14px;
+      cursor: pointer;
+      border: 2px ridge #bbb;
+      background: #f0f0f0;
+      user-select: none;
+    }
+    button.cell:disabled { cursor: default; }
+    #controls { margin-bottom: 8px; }
+  </style>
+</head>
+<body>
+  <div id="controls">
+    <label>Rows: <input id="rows" type="number" value="16" min="5" max="40" style="width:60px"></label>
+    <label>Cols: <input id="cols" type="number" value="16" min="5" max="40" style="width:60px"></label>
+    <label>Mines: <input id="mines" type="number" value="60" min="1" max="600" style="width:70px"></label>
+    <button id="newGame">New Game</button>
+  </div>
 
-class Minesweeper:
-    def __init__(self, master, rows=16, cols=16, mines=60):
-        self.rows = rows
-        self.cols = cols
-        self.mines = mines
-        self.master = master
-        self.master.title("Minesweeper")
-        self.grid = [[0 for _ in range(cols)] for _ in range(rows)]
-        self.revealed = [[False for _ in range(cols)] for _ in range(rows)]
-        self.game_over = False
-        self.first_click = True
+  <div id="board"></div>
 
-        # Create the grid of buttons
-        self.buttons = [[None for _ in range(cols)] for _ in range(rows)]
-        for i in range(rows):
-            for j in range(cols):
-                button = tk.Button(self.master, width=3, height=1,
-                                   command=lambda row=i, col=j: self.click(row, col),
-                                   relief="ridge", borderwidth=2)
-                button.config(highlightthickness=0, bd=2, padx=5, pady=5)
-                button.config(highlightbackground='#d9d9d9', highlightcolor='#d9d9d9')
-                button.grid(row=i, column=j)
-                self.buttons[i][j] = button
+  <script>
+    // Configuration (can be changed via controls above)
+    let ROWS = 16, COLS = 16, MINES = 60;
 
-        # Plant mines randomly
-        self.plant_mines()
+    let grid = [];
+    let revealed = [];
+    let buttons = [];
+    let gameOver = false;
+    let firstClick = true;
 
-    def plant_mines(self):
-        mines_planted = 0
-        while mines_planted < self.mines:
-            row = random.randint(0, self.rows - 1)
-            col = random.randint(0, self.cols - 1)
-            if self.grid[row][col] != -1:
-                self.grid[row][col] = -1
-                mines_planted += 1
+    const boardEl = document.getElementById('board');
+    const rowsInput = document.getElementById('rows');
+    const colsInput = document.getElementById('cols');
+    const minesInput = document.getElementById('mines');
+    const newGameBtn = document.getElementById('newGame');
 
-    def click(self, row, col):
-        if self.game_over:
-            return
+    newGameBtn.addEventListener('click', () => {
+      ROWS = Math.max(5, parseInt(rowsInput.value) || 16);
+      COLS = Math.max(5, parseInt(colsInput.value) || 16);
+      MINES = Math.max(1, Math.min(ROWS*COLS-1, parseInt(minesInput.value) || 60));
+      startGame();
+    });
 
-        if self.first_click:
-            self.first_click = False
-            # Reveal 3x3 area around first click
-            for i in range(max(0, row - 1), min(self.rows, row + 2)):
-                for j in range(max(0, col - 1), min(self.cols, col + 2)):
-                    if not self.revealed[i][j]:
-                        adjacent_mines = self.get_adjacent_mines(i, j)
-                        self.revealed[i][j] = True
-                        text = "" if adjacent_mines == 0 else str(adjacent_mines)
-                        bg_color = "green" if adjacent_mines == 0 else "lightgray"
-                        fg_color = "red" if adjacent_mines > 0 else "black"
-                        self.buttons[i][j].config(text=text, state=tk.DISABLED, bg=bg_color, fg=fg_color)
+    function startGame() {
+      // reset state
+      grid = Array.from({length: ROWS}, () => Array.from({length: COLS}, () => 0));
+      revealed = Array.from({length: ROWS}, () => Array.from({length: COLS}, () => false));
+      buttons = Array.from({length: ROWS}, () => Array.from({length: COLS}, () => null));
+      gameOver = false;
+      firstClick = true;
 
-        if self.grid[row][col] == -1:
-            self.reveal_all()
-            self.game_over = True
-            tk.messagebox.showinfo("Game Over", "You hit a mine!")
-            return
+      // build board UI
+      boardEl.style.gridTemplateColumns = `repeat(${COLS}, auto)`;
+      boardEl.innerHTML = '';
+      for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+          const btn = document.createElement('button');
+          btn.className = 'cell';
+          btn.dataset.row = r;
+          btn.dataset.col = c;
+          btn.addEventListener('click', () => clickCell(r, c));
+          // prevent context menu default (so right click doesn't open menu)
+          btn.addEventListener('contextmenu', (e) => e.preventDefault());
+          boardEl.appendChild(btn);
+          buttons[r][c] = btn;
+        }
+      }
 
-        if self.revealed[row][col]:
-            return
+      plantMines();
+    }
 
-        self.revealed[row][col] = True
-        adjacent_mines = self.get_adjacent_mines(row, col)
-        text = "" if adjacent_mines == 0 else str(adjacent_mines)
-        bg_color = "green" if adjacent_mines == 0 else "lightgray"
-        fg_color = "red" if adjacent_mines > 0 else "black"
-        self.buttons[row][col].config(text=text, state=tk.DISABLED, bg=bg_color, fg=fg_color)
+    function plantMines() {
+      let planted = 0;
+      while (planted < MINES) {
+        const r = Math.floor(Math.random() * ROWS);
+        const c = Math.floor(Math.random() * COLS);
+        if (grid[r][c] !== -1) {
+          grid[r][c] = -1;
+          planted++;
+        }
+      }
+    }
 
-        if self.get_adjacent_mines(row, col) == 0:
-            self.reveal_adjacent(row, col)
+    function getAdjacentMines(r, c) {
+      let count = 0;
+      for (let i = Math.max(0, r-1); i <= Math.min(ROWS-1, r+1); i++) {
+        for (let j = Math.max(0, c-1); j <= Math.min(COLS-1, c+1); j++) {
+          if (grid[i][j] === -1) count++;
+        }
+      }
+      return count;
+    }
 
-        # Check if the game is won
-        if all(self.revealed[i][j] for i in range(self.rows) for j in range(self.cols) if self.grid[i][j] != -1):
-            self.game_over = True
-            tk.messagebox.showinfo("You Win!", "Congratulations!")
+    function clickCell(r, c) {
+      if (gameOver) return;
 
-    def get_adjacent_mines(self, row, col):
-        mines = 0
-        for i in range(max(0, row - 1), min(self.rows, row + 2)):
-            for j in range(max(0, col - 1), min(self.cols, col + 2)):
-                if self.grid[i][j] == -1:
-                    mines += 1
-        return mines
+      if (firstClick) {
+        firstClick = false;
+        // Reveal 3x3 area around first click (no recursion)
+        for (let i = Math.max(0, r-1); i <= Math.min(ROWS-1, r+1); i++) {
+          for (let j = Math.max(0, c-1); j <= Math.min(COLS-1, c+1); j++) {
+            if (!revealed[i][j]) {
+              const adj = getAdjacentMines(i, j);
+              revealed[i][j] = true;
+              const btn = buttons[i][j];
+              btn.disabled = true;
+              btn.textContent = adj === 0 ? '' : String(adj);
+              btn.style.backgroundColor = adj === 0 ? 'green' : 'lightgray';
+              btn.style.color = adj > 0 ? 'red' : 'black';
+            }
+          }
+        }
+      }
 
-    def reveal_adjacent(self, row, col):
-        for i in range(max(0, row - 1), min(self.rows, row + 2)):
-            for j in range(max(0, col - 1), min(self.cols, col + 2)):
-                if not self.revealed[i][j] and self.grid[i][j] != -1:
-                    self.click(i, j)
+      // If clicked mine, reveal all and end game
+      if (grid[r][c] === -1) {
+        revealAll();
+        gameOver = true;
+        alert("Game Over: You hit a mine!");
+        return;
+      }
 
-    def reveal_all(self):
-        for i in range(self.rows):
-            for j in range(self.cols):
-                if self.grid[i][j] == -1:
-                    self.buttons[i][j].config(text="*", state=tk.DISABLED, bg="red")
-                else:
-                    adjacent_mines = self.get_adjacent_mines(i,j)
-                    text = "" if adjacent_mines == 0 else str(adjacent_mines)
-                    bg_color = "lightgray"
-                    fg_color = "red" if adjacent_mines > 0 else "black"
-                    self.buttons[i][j].config(text=text, state=tk.DISABLED, bg=bg_color, fg=fg_color)
+      if (revealed[r][c]) return;
 
-root = tk.Tk()
-game = Minesweeper(root)
-root.mainloop()
-    </body>
-    </html>
+      revealed[r][c] = true;
+      const adj = getAdjacentMines(r, c);
+      const btn = buttons[r][c];
+      btn.disabled = true;
+      btn.textContent = adj === 0 ? '' : String(adj);
+      btn.style.backgroundColor = adj === 0 ? 'green' : 'lightgray';
+      btn.style.color = adj > 0 ? 'red' : 'black';
+
+      if (adj === 0) {
+        revealAdjacent(r, c);
+      }
+
+      // Check win: all non-mines revealed
+      let won = true;
+      for (let i = 0; i < ROWS; i++) {
+        for (let j = 0; j < COLS; j++) {
+          if (grid[i][j] !== -1 && !revealed[i][j]) {
+            won = false;
+            break;
+          }
+        }
+        if (!won) break;
+      }
+      if (won) {
+        gameOver = true;
+        alert("You Win! Congratulations!");
+      }
+    }
+
+    function revealAdjacent(r, c) {
+      for (let i = Math.max(0, r-1); i <= Math.min(ROWS-1, r+1); i++) {
+        for (let j = Math.max(0, c-1); j <= Math.min(COLS-1, c+1); j++) {
+          if (!revealed[i][j] && grid[i][j] !== -1) {
+            // call the same function as clicking, but it will not re-enter recursion if cell is already revealed
+            clickCell(i, j);
+          }
+        }
+      }
+    }
+
+    function revealAll() {
+      for (let i = 0; i < ROWS; i++) {
+        for (let j = 0; j < COLS; j++) {
+          const btn = buttons[i][j];
+          btn.disabled = true;
+          if (grid[i][j] === -1) {
+            btn.textContent = '*';
+            btn.style.backgroundColor = 'red';
+            btn.style.color = 'black';
+          } else {
+            const adj = getAdjacentMines(i, j);
+            btn.textContent = adj === 0 ? '' : String(adj);
+            btn.style.backgroundColor = 'lightgray';
+            btn.style.color = adj > 0 ? 'red' : 'black';
+          }
+        }
+      }
+    }
+
+    // initialize with defaults
+    startGame();
+  </script>
+</body>
+</html>
