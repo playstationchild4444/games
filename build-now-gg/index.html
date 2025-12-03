@@ -1,15 +1,11 @@
-
-
-
-
-
 <!DOCTYPE html>
 <html lang="en-us">
   <head>
-    <base href="https://cdn.jsdelivr.net/gh/genizy/cg-rip@main/buildnow-gg/">
+    <!-- Remove risky <base> tag! -->
     <meta charset="utf-8">
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>BuildNow GG</title>
   </head>
   <body style="margin:0;padding:0" class="noselect">
     <div id="loading-text" style="color: black; font-size: 48px; font-family: cursive; text-align: center; margin-top: 20px;">LOADING...</div>
@@ -17,10 +13,12 @@
       style="position:fixed;top:0;left:0;width:100%;height:100%;outline:none"></canvas>
 
     <script>
+    // List expected split files, if used
     const SPLIT_MAP = {"7db022abd161455e3cc5f207e75d294b.wasm": null, "ab8dd356a41a2943639294657a0990f8.data": null};
     </script>
 
     <script>
+    // Merge files if split, otherwise just use regular URLs
     async function mergeParts(baseUrl) {
       const parts = [];
       for (let i = 1; i <= 99; i++) {
@@ -81,7 +79,7 @@
             return origFetch(mergedMap[key], options);
           }
           if (resource.includes("StreamingAssets")) {
-            return origFetch((document.querySelector('base').href !== null ? document.querySelector('base').href+"/" : "") + "StreamingAssets/"+resource.split("/StreamingAssets/")[1])
+            return origFetch("/BuildnowGG/" + resource); // Path for GitHub Pages
           }
         }
         return origFetch(resource, options);
@@ -104,12 +102,13 @@
       };
 
       const canvas = document.querySelector("#unity-canvas");
-      const loaderUrl = "Build/7a2dbded24d57e056180125b1583e7c4.loader.js";
+      // Make sure files load from /BuildnowGG/Build/ on GitHub Pages
+      const loaderUrl = "/BuildnowGG/Build/7a2dbded24d57e056180125b1583e7c4.loader.js";
       const config = {
-        dataUrl: "Build/ab8dd356a41a2943639294657a0990f8.data",
-        frameworkUrl: "Build/91a2bfcec140bc524100478b99a4f6d7.framework.js",
-        codeUrl: "Build/7db022abd161455e3cc5f207e75d294b.wasm",
-        streamingAssetsUrl: "StreamingAssets",
+        dataUrl: "/BuildnowGG/Build/ab8dd356a41a2943639294657a0990f8.data",
+        frameworkUrl: "/BuildnowGG/Build/91a2bfcec140bc524100478b99a4f6d7.framework.js",
+        codeUrl: "/BuildnowGG/Build/7db022abd161455e3cc5f207e75d294b.wasm",
+        streamingAssetsUrl: "/BuildnowGG/StreamingAssets",
         companyName: "BuildNow GG",
         productName: "BuildNow GG",
         productVersion: "1.0.0"
