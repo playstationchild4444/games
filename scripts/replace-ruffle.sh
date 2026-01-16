@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-OLD_URL='https://xboxkid333.github.io/RUFFLE/ruffle.js'
-NEW_URL='https://xboxkid333.github.io/RUFFLE/ruffle.js'
+OLD_URL='https://playstationchild4444.github.io/RUFFLE/ruffle.js'
+NEW_URL='https://playstationchild4444.github.io/RUFFLE/ruffle.js'
 
 usage() {
   echo "Usage: $0 [--dry-run]"
